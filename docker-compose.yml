@@ -1,0 +1,54 @@
+x-service: &common-dev-test
+  build:
+    context: .
+    target: build
+  working_dir: /src
+  volumes:
+    - .:/src
+    - ./rsa_private.pem:/rsa_private.pem
+    - ./rsa_public.pem:/rsa_public.pem
+  env_file:
+    - .env
+  depends_on:
+    - redis
+    - database
+
+version: "3.6"
+services:
+  prod:
+    image: tons/todo-go-api:${IMAGE_TAG:-latest}
+    build: .
+
+  test:
+    command: /bin/sh -c 'go test -v ./...'
+    <<: *common-dev-test
+
+  dev:
+    command: reflex -r "\.go$$" -s -- sh -c "sleep 3 && go run ."
+    ports:
+      - 8080:8080
+    <<: *common-dev-test
+
+  database:
+    image: postgres:13-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+
+  redis:
+    image: redis:6.2.5-alpine3.14
+    ports:
+      - 6379:6379
+
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    ports:
+      - 8001:8001
+
+volumes:
+  database: { }
